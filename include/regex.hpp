@@ -18,8 +18,14 @@ public:
     m_str = str;
   }
 
+  ~AtomicRegex(){}
+
   std::string toString() const{
     return m_str;
+  }
+
+  bool operator==(const AtomicRegex &atomic) const{
+    return m_str == atomic.m_str;
   }
 
   friend std::ostream& operator<<(std::ostream& os, AtomicRegex& regex);
@@ -43,6 +49,25 @@ public:
     m_atomics = new AtomicRegex[m_length];
     for (int i=0; i < m_length; i++)
       m_atomics[i] = regex.m_atomics[i];
+  }
+
+  Regex& operator=(const Regex &regex){
+    m_length = regex.m_length;
+    m_atomics = new AtomicRegex[m_length];
+    for (int i=0; i < m_length; i++)
+      m_atomics[i] = regex.m_atomics[i];
+    return *this;
+  }
+
+  bool operator==(const Regex &regex) const{
+    if (m_length != regex.m_length)
+      return false;
+
+    bool eq = true;
+    for (int i=0; i < m_length && eq; i++)
+      eq = m_atomics[i] == regex.m_atomics[i];
+
+    return eq;
   }
 
   Regex(){
@@ -106,7 +131,9 @@ public:
       atomics[i] = m_atomics[i];
     for (int i=m_length; i < m_length+regex.m_length; i++)
       atomics[i] = regex.m_atomics[i-m_length];
-    return Regex(atomics, m_length + regex.m_length);
+    Regex concat_regex(atomics, m_length + regex.m_length);
+    delete[] atomics;
+    return concat_regex;
   }
 
   // Añade el operador | entre dos expresiones

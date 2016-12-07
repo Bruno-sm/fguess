@@ -1,6 +1,9 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <set>
+#include <utility>
+#include <regex>
 #include <map>
 #include <string.h>
 #include <stdlib.h>
@@ -13,7 +16,7 @@ namespace fs = boost::filesystem;
 
 
 string basic_pool[] = { "[a-z]", "[A-Z]", "[0-9]", "\\?" "\t", ".",
-                        "\\n", "\\", ":", "\\<", "\\>", "#", "%", "~", "@", "=", "\\*", " ",
+                        "\\n", ":", "\\<", "\\>", "#", "%", "~", "@", "=", "\\*",
                         "\\+", "\\-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
                         "a", "A", "b", "B", "c", "C", "d", "D", "e", "E", "f", "F", "g",
                         "G", "h", "H", "i", "I", "j", "J", "k", "K", "l", "L", "m", "M",
@@ -39,10 +42,27 @@ Regex mutation(const Regex &regex, const vector<Regex> &pool){
 }
 
 
-void buildInitialPool(vector<Regex> &pool, const fs::path &files_path, int p){
+void buildInitialPool(vector<Regex> &pool, vector<ifstream> &files, int p){
   int basic_size = sizeof(basic_pool)/sizeof(string);
   for (int i=0; i < basic_size; i++){
-    pool.push_back(Regex(basic_pool[i]));
+    pool.push_back(Regex(basic_pool[rand() % basic_size]));
+  }
+
+  int file_index;
+  int char_position;
+  char character;
+  string str;
+  for (int i=basic_size; i < p; i++){
+    file_index = (int)(rand() % files.size());
+    char_position = (int)(rand() % files[file_index].gcount());
+    files[file_index].seekg(char_position, files[file_index].beg);
+    while (!isspace(files[file_index].peek()) && files[file_index].peek() != EOF){
+      files[file_index].get(character);
+      str.push_back(character);
+    }
+    pool.push_back(Regex(str));
+    str = "";
+    files[file_index].seekg(0, files[file_index].beg);
   }
 }
 
@@ -60,19 +80,107 @@ void genetic_operations(vector<Regex> &pool, double epsilon){
 }
 
 
-vector<int> select_fittest(vector<Regex> &pool, int k, const fs::path &current_format_path, const fs::path &root_path){
-  int t = pool.size() - k;
-  for (int i=0; i < t; i++)
-    pool.pop_back();
-  vector<int> goodness;
-  for (int i=0; i < k; i++)
-    goodness.push_back(i);
-  return goodness;
-  // Eliminar exprsiones repetidas
+int count_matches(const Regex &regex, vector<ifstream> &files){
+  int matches = 0;
+  string text;
+
+  for (vector<ifstream>::iterator it = files.begin(); it != files.end(); ++it){
+    text = "";
+    while(it->peek() != EOF)
+      text += it->get();
+    it->seekg(0, it->beg);
+
+    std::regex r(regex.toString());
+    auto r_begin = std::sregex_iterator(
+        text.begin(), text.end(), r);
+    auto r_end = std::sregex_iterator();
+
+    matches += std::distance(r_begin, r_end);
+  }
+
+  return matches;
+}
+
+/*
+vector<int> count_matches(const vector<Regex> &regexs, const vector<fs::path> files_paths){
+  CountLexTemplate countTemplate;
+  for (vector<Regex>::const_iterator it = regexs.begin(); it != regexs.end(); ++it)
+    countTemplate.addRegex(it->toString());
+  countTemplate.save("count.lex");
+
+  system("echo "" > out.txt");
+  system("flex count.lex");
+  system("gcc lex.yy.c -o count -lfl");
+  fs::directory_iterator end_it;
+  string command_str = "./count ";
+  for (vector<fs::path>::const_iterator it = files_paths.begin(); it != files_paths.end(); ++it){
+    command_str += it->string();
+    command_str += " ";
+  }
+  command_str += "> out.txt";
+  system(command_str.c_str());
+  ifstream ifs("out.txt");
+  vector<int> matches;
+  int num;
+  for (int i=0; i < regexs.size(); i++){
+    ifs >> num;
+    matches.push_back(num);
+  }
+
+  return matches;
+}*/
+
+
+int count_chars(vector<ifstream> &files){
+  int count = 0;
+
+  for (vector<ifstream>::iterator it = files.begin(); it != files.end(); ++it){
+    it->seekg(0, it->end);
+    count += it->tellg();
+    it->seekg(0, it->beg);
+  }
+
+  return count;
 }
 
 
-void complete_pool(vector<Regex> &pool, int p, const fs::path &files_path){
+struct Cmp {
+  bool operator() (const pair<int, double>& lpair, const pair<int, double>& rpair) const{
+    return lpair.second >= rpair.second;
+  }
+};
+
+vector<int> select_fittest(vector<Regex> &pool, int k, vector<ifstream> &current_format_files, vector<ifstream> &other_formats_files){
+  int current_format_chars_count = count_chars(current_format_files);
+  int other_formats_chars_count = count_chars(other_formats_files);
+  set<pair<int, double>, Cmp> regex_goodness_set;
+
+  double current_matches_mean, other_matches_mean;
+  for (int i=0; i < pool.size(); i++){
+    pair<int, double> p;
+    p.first = i;
+    current_matches_mean = (double)count_matches(pool[i], current_format_files) / (double)current_format_chars_count;
+    other_matches_mean = (double)count_matches(pool[i], other_formats_files) / (double)other_formats_chars_count;
+    p.second = current_matches_mean / (1000*other_matches_mean + 1);
+    regex_goodness_set.insert(p);
+  }
+
+  vector<int> goodness;
+  vector<Regex> new_pool;
+  int i = 0;
+  for (set<std::pair<int, double>, Cmp>::iterator it = regex_goodness_set.begin(); i < k; i++, ++it){
+    new_pool.push_back(pool[it->first]);
+    goodness.push_back(it->second);
+    cerr << pool[it->first] << " (" << it->second << ")" << endl;
+  }
+  cerr << endl <<  "------------------------------------" << endl << endl;
+  pool = new_pool;
+
+  return goodness;
+}
+
+
+void complete_pool(vector<Regex> &pool, int p, const vector<ifstream> &files){
   int basic_size = sizeof(basic_pool)/sizeof(string);
   for (int i=pool.size(); i < p; i++)
     pool.push_back(Regex(basic_pool[rand() % basic_size]));
@@ -80,16 +188,38 @@ void complete_pool(vector<Regex> &pool, int p, const fs::path &files_path){
 
 
 void training(const fs::path &current_format_path, const fs::path &root_path, OutputTemplate &output_template, int n, int p, int k, int k_0, double epsilon){
+  vector<fs::path> current_format_file_paths;
+  vector<fs::path> other_formats_file_paths;
+  vector<ifstream> current_format_streams;
+  vector<ifstream> other_formats_streams;
+  fs::directory_iterator end_it;
+
+  for(fs::directory_iterator it(root_path/current_format_path); it != end_it; ++it)
+    if (fs::is_regular_file(it->status())){
+      current_format_file_paths.push_back(fs::system_complete(*it));
+      current_format_streams.push_back(ifstream(fs::system_complete(*it).string()));
+    }
+
+  for(fs::directory_iterator it(root_path); it != end_it; ++it)
+    if (fs::is_directory(it->status()) && *it != current_format_path)
+      for(fs::directory_iterator dir_it(*it); dir_it != end_it; ++dir_it)
+        if (fs::is_regular_file(dir_it->status())){
+          other_formats_file_paths.push_back(fs::system_complete(*dir_it));
+          other_formats_streams.push_back(ifstream(fs::system_complete(*dir_it).string()));
+        }
+
+
   cout << "Entrenando expresiones " << current_format_path.string() << " (0%)" << flush;
+
   vector<Regex> pool;
-  buildInitialPool(pool, current_format_path, p);
+  buildInitialPool(pool, current_format_streams, p);
   for (int i=0; i < n; i++){
     genetic_operations(pool, epsilon);
-    select_fittest(pool, k, current_format_path, root_path); // TODO abrir los archivos en dos vectores y pasarlos en vez de los paths
-    complete_pool(pool, p, current_format_path);
+    select_fittest(pool, k, current_format_streams, other_formats_streams);
+    complete_pool(pool, p, current_format_streams);
     cout << "\rEntrenando expresiones " << current_format_path.string() << " (" << 100*i/n << "%)" << flush;
   }
-  vector<int> goodness = select_fittest(pool, k_0, current_format_path, root_path);
+  vector<int> goodness = select_fittest(pool, k_0, current_format_streams, other_formats_streams);
   cout << "\rEntrenando expresiones " << current_format_path.string() << " (100%)" << flush << endl;
 
   for (int i=0; i < pool.size(); i++)
@@ -98,7 +228,7 @@ void training(const fs::path &current_format_path, const fs::path &root_path, Ou
 
 
 int main(int argc, char** argv){
-  int p = 20, k = 5, k_0 = 15, iter = 1000;
+  int p = 50, k = 30, k_0 = 10, iter = 1000;
   double epsilon = 0.01;
   fs::path examples_path(fs::initial_path<fs::path>());
 
