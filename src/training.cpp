@@ -145,20 +145,20 @@ int count_chars(vector<ifstream> &files){
 
 
 struct Cmp {
-  bool operator() (const pair<int, double>& lpair, const pair<int, double>& rpair) const{
-    return lpair.second >= rpair.second;
+  bool operator() (const pair<Regex*, double>& lpair, const pair<Regex*, double>& rpair) const{
+    return lpair.second >= rpair.second && !(*(lpair.first) == *(rpair.first));
   }
 };
 
 vector<int> select_fittest(vector<Regex> &pool, int k, vector<ifstream> &current_format_files, vector<ifstream> &other_formats_files){
   int current_format_chars_count = count_chars(current_format_files);
   int other_formats_chars_count = count_chars(other_formats_files);
-  set<pair<int, double>, Cmp> regex_goodness_set;
+  set<pair<Regex*, double>, Cmp> regex_goodness_set;
 
   double current_matches_mean, other_matches_mean;
   for (int i=0; i < pool.size(); i++){
-    pair<int, double> p;
-    p.first = i;
+    pair<Regex*, double> p;
+    p.first = &(pool[i]);
     current_matches_mean = (double)count_matches(pool[i], current_format_files) / (double)current_format_chars_count;
     other_matches_mean = (double)count_matches(pool[i], other_formats_files) / (double)other_formats_chars_count;
     p.second = current_matches_mean / (1000*other_matches_mean + 1);
@@ -168,10 +168,10 @@ vector<int> select_fittest(vector<Regex> &pool, int k, vector<ifstream> &current
   vector<int> goodness;
   vector<Regex> new_pool;
   int i = 0;
-  for (set<std::pair<int, double>, Cmp>::iterator it = regex_goodness_set.begin(); i < k; i++, ++it){
-    new_pool.push_back(pool[it->first]);
+  for (set<std::pair<Regex*, double>, Cmp>::iterator it = regex_goodness_set.begin(); i < k && it != regex_goodness_set.end(); i++, ++it){
+    new_pool.push_back(*(it->first));
     goodness.push_back(it->second);
-    cerr << pool[it->first] << " (" << it->second << ")" << endl;
+    cerr << *(it->first) << " (" << it->second << ")" << endl;
   }
   cerr << endl <<  "------------------------------------" << endl << endl;
   pool = new_pool;
