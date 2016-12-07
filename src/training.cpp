@@ -27,10 +27,10 @@ string basic_pool[] = { "[a-z]", "[A-Z]", "[0-9]", "\\?" "\t", ".",
 Regex crossover(const Regex &regex1, const Regex &regex2){
   int operation = (int)rand() % 4;
   switch (operation) {
-    case 0: return regex1 * regex2; break;
-    case 1: return regex1 | regex2; break;
-    case 2: return regex1++; break;
-    case 3: return *regex1; break;
+    case 0: cerr << "concat" << endl; return regex1 * regex2; break;
+    case 1: cerr << "or" << endl; return regex1 | regex2; break;
+    case 2: cerr << "clau+" << endl; return regex1++; break;
+    case 3: cerr << "clau" << endl; return *regex1; break;
   }
 }
 
@@ -67,13 +67,13 @@ void buildInitialPool(vector<Regex> &pool, vector<ifstream> &files, int p){
 }
 
 
-void genetic_operations(vector<Regex> &pool, double epsilon){
-  // Dos tercios de la piscina serán expresiones derivadas de las existentes
-  int p = pool.size();
-  for (int i=0; i < (int)2*p; i++){
-    int r = rand() % (int)(epsilon*100);
+void genetic_operations(vector<Regex> &pool, int n, double epsilon){
+  cerr << "gen op " << n << endl;
+  int r;
+  for (int i=0; i < n; i++){
+    r = rand() % (int)(epsilon*100);
     switch (r) {
-      case 0: pool.push_back(mutation(pool[rand() % pool.size()], pool)); break;
+      case 0: cerr << "mut" << endl; pool.push_back(mutation(pool[rand() % pool.size()], pool)); break;
       default: pool.push_back(crossover(pool[rand() % pool.size()], pool[rand() % pool.size()]));
     }
   }
@@ -180,7 +180,10 @@ vector<int> select_fittest(vector<Regex> &pool, int k, vector<ifstream> &current
 }
 
 
-void complete_pool(vector<Regex> &pool, int p, const vector<ifstream> &files){
+void complete_pool(vector<Regex> &pool, int p, double epsilon, const vector<ifstream> &files){
+  cout << p << " " << pool.size() << endl;
+  genetic_operations(pool, (int)(2/3*(p - pool.size())), epsilon);
+
   int basic_size = sizeof(basic_pool)/sizeof(string);
   for (int i=pool.size(); i < p; i++)
     pool.push_back(Regex(basic_pool[rand() % basic_size]));
@@ -214,9 +217,8 @@ void training(const fs::path &current_format_path, const fs::path &root_path, Ou
   vector<Regex> pool;
   buildInitialPool(pool, current_format_streams, p);
   for (int i=0; i < n; i++){
-    genetic_operations(pool, epsilon);
+    complete_pool(pool, p, epsilon, current_format_streams);
     select_fittest(pool, k, current_format_streams, other_formats_streams);
-    complete_pool(pool, p, current_format_streams);
     cout << "\rEntrenando expresiones " << current_format_path.string() << " (" << 100*i/n << "%)" << flush;
   }
   vector<int> goodness = select_fittest(pool, k_0, current_format_streams, other_formats_streams);
@@ -228,7 +230,7 @@ void training(const fs::path &current_format_path, const fs::path &root_path, Ou
 
 
 int main(int argc, char** argv){
-  int p = 50, k = 30, k_0 = 10, iter = 1000;
+  int p = 50, k = 20, k_0 = 10, iter = 1000;
   double epsilon = 0.01;
   fs::path examples_path(fs::initial_path<fs::path>());
 
