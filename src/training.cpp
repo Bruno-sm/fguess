@@ -15,7 +15,7 @@ using namespace std;
 namespace fs = boost::filesystem;
 
 
-string basic_pool[] = { "[a-z]", "[A-Z]", "[0-9]", "\\?" "\t", ".",
+string basic_pool[] = { "[a-z]", "[A-Z]", "[0-9]", "\\?" "\t", ".", "\\{", "\\}",
                         "\\n", ":", "\\<", "\\>", "#", "%", "~", "@", "=", "\\*",
                         "\\+", "\\-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
                         "a", "A", "b", "B", "c", "C", "d", "D", "e", "E", "f", "F", "g",
@@ -27,10 +27,10 @@ string basic_pool[] = { "[a-z]", "[A-Z]", "[0-9]", "\\?" "\t", ".",
 Regex crossover(const Regex &regex1, const Regex &regex2){
   int operation = (int)rand() % 4;
   switch (operation) {
-    case 0: cerr << "concat" << endl; return regex1 * regex2; break;
-    case 1: cerr << "or" << endl; return regex1 | regex2; break;
-    case 2: cerr << "clau+" << endl; return regex1++; break;
-    case 3: cerr << "clau" << endl; return *regex1; break;
+    case 0: return regex1 * regex2; break;
+    case 1: return regex1 | regex2; break;
+    case 2: return regex1++; break;
+    case 3: return *regex1; break;
   }
 }
 
@@ -43,6 +43,7 @@ Regex mutation(const Regex &regex, const vector<Regex> &pool){
 
 
 void buildInitialPool(vector<Regex> &pool, vector<ifstream> &files, int p){
+  cerr << "Building initial pool" << endl;
   int basic_size = sizeof(basic_pool)/sizeof(string);
   for (int i=0; i < basic_size; i++){
     pool.push_back(Regex(basic_pool[rand() % basic_size]));
@@ -68,13 +69,13 @@ void buildInitialPool(vector<Regex> &pool, vector<ifstream> &files, int p){
 
 
 void genetic_operations(vector<Regex> &pool, int n, double epsilon){
-  cerr << "gen op " << n << endl;
   int r;
   for (int i=0; i < n; i++){
-    r = rand() % (int)(epsilon*100);
-    switch (r) {
-      case 0: cerr << "mut" << endl; pool.push_back(mutation(pool[rand() % pool.size()], pool)); break;
-      default: pool.push_back(crossover(pool[rand() % pool.size()], pool[rand() % pool.size()]));
+    r = rand() % 100;
+    if (r < epsilon*100){
+      pool.push_back(mutation(pool[rand() % pool.size()], pool));
+    } else {
+      pool.push_back(crossover(pool[rand() % pool.size()], pool[rand() % pool.size()]));
     }
   }
 }
@@ -146,11 +147,12 @@ int count_chars(vector<ifstream> &files){
 
 struct Cmp {
   bool operator() (const pair<Regex*, double>& lpair, const pair<Regex*, double>& rpair) const{
-    return lpair.second >= rpair.second && !(*(lpair.first) == *(rpair.first));
+    return lpair.second > rpair.second;
   }
 };
 
 vector<int> select_fittest(vector<Regex> &pool, int k, vector<ifstream> &current_format_files, vector<ifstream> &other_formats_files){
+  cerr << "Selecting fittest" << endl;
   int current_format_chars_count = count_chars(current_format_files);
   int other_formats_chars_count = count_chars(other_formats_files);
   set<pair<Regex*, double>, Cmp> regex_goodness_set;
@@ -181,9 +183,10 @@ vector<int> select_fittest(vector<Regex> &pool, int k, vector<ifstream> &current
 
 
 void complete_pool(vector<Regex> &pool, int p, double epsilon, const vector<ifstream> &files){
-  cout << p << " " << pool.size() << endl;
-  genetic_operations(pool, (int)(2/3*(p - pool.size())), epsilon);
+  cerr << "genetic operations"  << endl;
+  genetic_operations(pool, (int)((2.0/3)*(p - pool.size())), epsilon);
 
+  cerr << "completting pool" << endl;
   int basic_size = sizeof(basic_pool)/sizeof(string);
   for (int i=pool.size(); i < p; i++)
     pool.push_back(Regex(basic_pool[rand() % basic_size]));
