@@ -103,7 +103,7 @@ public:
         rules += std::to_string(i);
         rules += "][";
         rules += std::to_string(j);
-        rules += "].matches++;}\n";
+        rules += "].matches++; REJECT;}\n";
 
         init_regex_data += "  initRegexData(&formats_regex[";
         init_regex_data += std::to_string(i);
