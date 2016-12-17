@@ -1,5 +1,5 @@
 CXX=g++
-FLAGS=-g -O3 -std=c++11 -pg -fopenmp
+FLAGS=-g -O3 -std=c++11 -pg
 HEAD_DIR=./include
 SRC_DIR=./src
 OBJ_DIR=./obj

@@ -1,3 +1,7 @@
+/*
+ * Clases para generar los archivos lex (count.lex y fguess.lex) 
+ */
+
 #ifndef _FILE_TEMPLATES_H_
 #define _FILE_TEMPLTES_H_
 #include <fstream>
@@ -33,7 +37,7 @@ public:
       rules += regexs[i];
       rules += " {regex_count[";
       rules += std::to_string(i);
-      rules += "]++;}\n";
+      rules += "]++; REJECT;}\n";
     }
 
     std::string str = "";

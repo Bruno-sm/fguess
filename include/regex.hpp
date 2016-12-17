@@ -1,9 +1,13 @@
+/*
+ * Clases para el manejo de expresiones regulares
+ */
+
 #ifndef _REGEX_H_
 #define _REGEX_H_
 
 #include <string>
 
-// Permite tratar cde forma indivisible a expresiones con más de un caracter e.g: [a-z]
+// Permite tratar de forma indivisible a expresiones con más de un caracter e.g: [a-z]
 class AtomicRegex{
 private:
   std::string m_str;
