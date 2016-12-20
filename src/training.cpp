@@ -25,7 +25,12 @@ string basic_pool[] = { "[a-z]", "[A-Z]", "[0-9]", "\\?" "\t", ".", "\\{", "\\}"
                         "T", "u", "U", "v", "V", "w", "W", "x", "X", "y", "Y", "z", "Z"};
 
 
-// Cruzamiento entre expresiones regulares
+/**
+ * @brief Performs the Crossover between regular expressions. It consist in an
+ * operation chossed randomly.
+ * @param regex1 First Regex for the Crossover.
+ * @param regex2 Second Regex for the Crossover.
+ */
 Regex crossover(const Regex &regex1, const Regex &regex2){
   int operation = (int)rand() % 4;
   switch (operation) {
@@ -37,7 +42,11 @@ Regex crossover(const Regex &regex1, const Regex &regex2){
 }
 
 
-// Mutación de la expresión regular
+/**
+ * @brief Performs a muttation in a regular expression and adds it at the pool,
+ * @param regex Base regex for the muttation.
+ * @param pool Pool in which the muttation will be added.
+ */
 Regex mutation(const Regex &regex, const vector<Regex> &pool){
   Regex rand_word = pool[rand() % pool.size()];
   int split_point = (int)(rand()%(regex.length()));
@@ -45,7 +54,12 @@ Regex mutation(const Regex &regex, const vector<Regex> &pool){
 }
 
 
-// Inserta n palabras escogidas aleatoriamente de los archivos en la piscina
+/**
+ * @brief Adds n randomly chossed words in the pool.
+ * @param pool Pool in which the words will be added.
+ * @param files Files from which the words are taken.
+ * @param n Number of words to insert.
+ */
 void insertWordsFromFiles(vector<Regex> &pool, vector<ifstream> &files, int n){
   int file_index;
   int char_position, char_num;
@@ -75,8 +89,12 @@ void insertWordsFromFiles(vector<Regex> &pool, vector<ifstream> &files, int n){
 }
 
 
-// Construye la piscina inicial
-void buildInitialPool(vector<Regex> &pool, vector<ifstream> &files, int p){
+/**
+ * @brief Builds the initial pool. It is only some basic_pool elements in a std::vector form.
+ * @param pool Vector to store the pool.
+ * @param p Pool size.
+ */
+void buildInitialPool(vector<Regex> &pool, int p){
   cerr << "Building initial pool" << endl;
   int basic_size = sizeof(basic_pool)/sizeof(string);
   for (int i=0; i < p; i++){
@@ -85,7 +103,12 @@ void buildInitialPool(vector<Regex> &pool, vector<ifstream> &files, int p){
 }
 
 
-// Efectua el cruzamiento o la mutación de n expresiones y las introduce en la piscina
+/**
+ * @bief Performs the genetic operations (Crossover and Mutation).
+ * @param pool Pool to add the genetic operations results.
+ * @param n Number of genetic operations to do.
+ * @param epsilon Probability of the muttation. Must be a value between 0 and 1.
+ */
 void genetic_operations(vector<Regex> &pool, int n, double epsilon){
   int r;
   for (int i=0; i < n; i++){
@@ -99,7 +122,11 @@ void genetic_operations(vector<Regex> &pool, int n, double epsilon){
 }
 
 
-// Cuenta el número de coincidencias de las expresiones en los archivos
+/**
+ * @brief Counts the number of matches of the expressions in all the files.
+ * @param regex Regular expresions whose matches will count.
+ * @param files_paths Paths of the files against which the regular expressions will be matched.
+ */
 vector<int> count_matches(const vector<Regex> &regexs, const vector<fs::path> files_paths){
   CountLexTemplate countTemplate;
   for (vector<Regex>::const_iterator it = regexs.begin(); it != regexs.end(); ++it)
@@ -127,7 +154,9 @@ vector<int> count_matches(const vector<Regex> &regexs, const vector<fs::path> fi
 }
 
 
-// Cuenta el número de caracteres de los archivos
+/**
+ * @brief Counts the total number of characters in the files.
+ */
 long int count_chars(vector<ifstream> &files){
   long int count = 0;
 
@@ -141,14 +170,24 @@ long int count_chars(vector<ifstream> &files){
 }
 
 
-// Comparador para regex_goodness_set
+/**
+ * @brief std::set<pairRegex*, double> comparator.
+ */
 struct Cmp {
   bool operator() (const pair<Regex*, double>& lpair, const pair<Regex*, double>& rpair) const{
     return lpair.second > rpair.second;
   }
 };
 
-// Selecciona las k mejores expresiones
+/**
+ * @brief Select the k best expressions in the pool.
+ * @param pool Pool from which select the expressions.
+ * @param k Number of expressions to select.
+ * @param current_format_files Files with the format in which the expressions must be trained.
+ * @param other_format_files Rest of the training files.
+ * @param current_format_file_paths Paths of the current_format_files.
+ * @param other_formats_file_paths Paths of the other_format_files.
+ */
 vector<double> select_fittest(vector<Regex> &pool, int k, vector<ifstream> &current_format_files, vector<ifstream> &other_formats_files, const vector<fs::path> &current_format_file_paths, const vector<fs::path> &other_formats_file_paths){
   long int current_format_chars_count = count_chars(current_format_files);
   long int other_formats_chars_count = count_chars(other_formats_files);
@@ -184,24 +223,39 @@ vector<double> select_fittest(vector<Regex> &pool, int k, vector<ifstream> &curr
 }
 
 
-// Completa la piscina hasta el tamaño p
+/**
+ * @brief Fills the pool until reach the size p.
+ * @param pool Pool to fill.
+ * @param p Size of the complete pool.
+ * @param files Files with the format in which the expressions must be trained. Are used to call the insertWordsFromFiles funtion.
+ */
 void complete_pool(vector<Regex> &pool, int p, double epsilon, vector<ifstream> &files){
   int free_pool_size = p - pool.size();
 
-  // 1/3 del espacio libre se rellena con mezclas genéticas
+  // 1/3 of the free space is filled with genetic operations.
   genetic_operations(pool, (int)(1.0/3 * free_pool_size), epsilon);
 
-  // 1/5 del espacio libre se rellena con palabras de los archivos del formato a entrenar
+  // 1/5 of the free space is filled with words extracted from the files
   insertWordsFromFiles(pool, files, (int)(1.0/5 * free_pool_size));
 
-  // El resto del espacio libre se rellena con elementos de la piscina inicial
+  // The rest of the free space is filled with some basic_pool elements
   int basic_size = sizeof(basic_pool)/sizeof(string);
   for (int i=pool.size(); i < p; i++)
     pool.push_back(Regex(basic_pool[rand() % basic_size]));
 }
 
 
-// Entrena las expresiones para que se ajusten al formato señalado por current_format_path
+/**
+ * @brief Trains the expressions in order to adjust it to the format indicated by current_format_path.
+ * @param current_format_path Path to the folder which contains the files with the format in which the expressions will be trained.
+ * @param root_path Path to the folder which contains all the folders with the training files.
+ * @param output_template OutputTemplate in wich the training expresions will be written.
+ * @param n Number of iterations of the training.
+ * @param p Size of the pool.
+ * @param k Number of selected expressions after each iteration.
+ * @param k_0 Number of seleccted expressions after the last interation.
+ * @param epsilon Muttation probability. Must be a value between 0 and 1.
+ */
 void training(const fs::path &current_format_path, const fs::path &root_path, OutputTemplate &output_template, int n, int p, int k, int k_0, double epsilon){
   vector<ifstream> current_format_streams;
   vector<ifstream> other_formats_streams;
@@ -224,17 +278,17 @@ void training(const fs::path &current_format_path, const fs::path &root_path, Ou
         }
 
 
-  cout << "Entrenando expresiones " << current_format_path.string() << " (0%)" << flush;
+  cout << "Training expressions " << current_format_path.string() << " (0%)" << flush;
 
   vector<Regex> pool;
-  buildInitialPool(pool, current_format_streams, p);
+  buildInitialPool(pool, p);
   for (int i=0; i < n; i++){
     complete_pool(pool, p, epsilon, current_format_streams);
     select_fittest(pool, k, current_format_streams, other_formats_streams, current_format_file_paths, other_formats_file_paths);
-    cout << "\rEntrenando expresiones " << current_format_path.string() << " (" << 100*i/n << "%)" << flush;
+    cout << "\rTraining expressions " << current_format_path.string() << " (" << 100*i/n << "%)" << flush;
   }
   vector<double> goodness = select_fittest(pool, k_0, current_format_streams, other_formats_streams, current_format_file_paths, other_formats_file_paths);
-  cout << "\rEntrenando expresiones " << current_format_path.string() << " (100%)" << flush << endl;
+  cout << "\rTraining expressions " << current_format_path.string() << " (100%)" << flush << endl;
 
   for (int i=0; i < pool.size(); i++)
     output_template.addRegex(current_format_path.string(), pool[i].toString(), goodness[i]);
@@ -247,7 +301,7 @@ int main(int argc, char** argv){
   fs::path examples_path(fs::initial_path<fs::path>());
 
   if (argc == 1){
-    cout << "Especifica el directorio con los archivos de ejemplo" << endl;
+    cout << "Insert the directory with the training files" << endl;
     return -1;
   }
   examples_path = fs::system_complete(fs::path(argv[1]));
@@ -273,12 +327,12 @@ int main(int argc, char** argv){
     }
 
   if (k > p){
-    cout << "k no puede ser mayor que p" << endl;
+    cout << "k can't be greater than p" << endl;
     return -1;
   }
 
   if (k_0 > p){
-    cout << "k_0 no puede ser mayor que p" << endl;
+    cout << "k_0 can't be greater than p" << endl;
     return -1;
   }
 
@@ -286,7 +340,7 @@ int main(int argc, char** argv){
   srand((unsigned) time(&t));
 
   if (!fs::exists(examples_path)) {
-    cerr << "El directorio especificado no existe" << endl;
+    cerr << "The specified directory doesn't exists" << endl;
     return -1;
   }
 
@@ -298,7 +352,7 @@ int main(int argc, char** argv){
   }
 
   int count;
-  cout << "Muestras encontradas:" << endl;
+  cout << "Samples found:" << endl;
   for (vector<fs::path>::iterator it=example_folders.begin(); it!=example_folders.end(); ++it){
     cout << it->string();
     count = 0;
@@ -309,11 +363,11 @@ int main(int argc, char** argv){
   }
 
   string res;
-  cout << "¿Comenzar el entrenamiento? (s/n) ";
+  cout << "Start training? (y/n) ";
   cin >> res;
-  if (res != "s" && res != "S")
+  if (res != "y" && res != "Y")
     return 0;
-  cout << "Empezando a entrenar:" << endl;
+  cout << "Starting training:" << endl;
 
   OutputTemplate fguess_template;
   for (vector<fs::path>::iterator it=example_folders.begin(); it!=example_folders.end(); ++it)

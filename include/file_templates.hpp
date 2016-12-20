@@ -1,5 +1,6 @@
-/*
- * Clases para generar los archivos lex (count.lex y fguess.lex) 
+ /**
+ * @file file_templates.hpp
+ * @brief Classes for generate the lex files count.lex and fguess.lex
  */
 
 #ifndef _FILE_TEMPLATES_H_
@@ -8,10 +9,24 @@
 #include <string>
 #include <stdlib.h>
 
+
+
+/**
+ * @brief Parent class for the two kinds of templates.
+ */
 class FileTemplate{
 public:
+
+  /**
+   * @brief Transform the internal state of the template in a lex program and
+   * returns it in a string.
+   */
   virtual std::string toString() = 0;
 
+  /**
+   * @brief Writes the program in a file.
+   * @param filename Name of the output file.
+   */
   void save(const std::string &filename){
     std::ofstream of(filename);
     of << toString();
@@ -19,18 +34,26 @@ public:
 };
 
 
-// Genera un progrma en lex que cuenta cuantas veces aparece cada expresion regular
-// en un archivo
+/**
+ * @brief Generates a lex program to count the number of regexs matches in several files.
+ */
 class CountLexTemplate : public FileTemplate{
 private:
   std::vector<std::string> regexs;
 
 public:
 
+  /**
+   * @brief Stores the regex in order to count its matches in the generated program.
+   */
   void addRegex(const std::string& regex){
     regexs.push_back(regex);
   }
 
+  /**
+   * @brief Generates a lex program which count the matches in several files for all the stored regex and
+   * prints the values separated by an space.
+   */
   std::string toString(){
     std::string rules = "";
     for (int i=0; i < regexs.size(); i++){
@@ -42,7 +65,7 @@ public:
 
     std::string str = "";
     str +=
-    " /*----Sección de declaraciones----*/\n"
+    " /*----Declarations section----*/\n"
     "%{\n"
     "#include <stdio.h>\n"
     "#define regex_num ";
@@ -52,16 +75,16 @@ public:
     "int regex_count[regex_num];\n"
     "%}\n\n"
     "%%\n"
-    " /*----Seccion de Reglas----*/\n";
+    " /*----Rules section----*/\n";
     str  += rules;
     str +=
     ".|\\n {;}"
     "\n"
     "%%\n"
-    " /*----Seccion de procedimientos----*/\n"
+    " /*----Procedures section----*/\n"
     "int main(int argc, char** argv){\n"
     " if (argc < 2){\n"
-    "   printf(\"Introduce los archivos de entrada\\n\");\n"
+    "   printf(\"Insert the input files\\n\");\n"
     "   return -1;\n"
     " }\n"
     " for (int i=0; i < regex_num; i++)\n"
@@ -69,7 +92,7 @@ public:
     " for (int i=1; i < argc; i++){\n"
     "   yyin = fopen(argv[i], \"rt\");\n"
     "   if(yyin == NULL){\n"
-    "     printf(\"El fichero %s no se puede abrir\\n\", argv[1]);\n"
+    "     printf(\"The file %s can't be opened\\n\", argv[1]);\n"
     "     exit(-1);\n"
     "   }\n"
     "   yylex();\n"
@@ -84,16 +107,30 @@ public:
 };
 
 
-// Genera el archivo lex de salida
+/**
+ * @brief Generates the fguess.lex program which calculates the reliability with which a file is of a certain format.
+ */
 class OutputTemplate : public FileTemplate{
 private:
   std::map<std::string, std::vector<std::pair<std::string, double> > > regex_data;
 
 public:
+
+  /**
+   * @brief Stores a regex which should be trained to fit with a format alongside its goodness.
+   * @param format_name Format for which the regex has been trained to fit.
+   * @param regex Regex to store.
+   * @param goodness Goodness of the regex.
+   */
   void addRegex(const std::string &format_name, const std::string &regex, double goodness){
     regex_data[format_name].push_back(std::pair<std::string, double>(regex, goodness));
   }
 
+
+  /**
+   * @brief Generates a lex program which calculates the reliability with which a file is of a certain format
+   * using the expressions and goodness stored.
+   */
   std::string toString(){
     std::string rules = "";
     std::string init_regex_data = "";
@@ -132,7 +169,7 @@ public:
 
     std::string str = "";
     str +=
-  "  /*----Sección de declaraciones----*/\n"
+  "  /*----Declarations section----*/\n"
   "%{"
   "#include <stdio.h>\n"
 
@@ -149,23 +186,23 @@ public:
   "#define formats_num ";
   str += std::to_string(regex_data.size());
   str +=
-  " // Número de formatos de los que obtenemos la fiabilidad\n"
+  " // Number of formats for which we obtain the reliability\n"
   "struct RegexData** formats_regex;\n"
   "%}\n"
   "\n"
   "%%\n"
-  "  /*----Seccion de Reglas----*/\n";
+  "  /*----Rules section----*/\n";
   str += rules;
   str +=
   ".|\\n {;}\n"
   "\n"
   "%%\n"
-  "  /*----Seccion de procedimientos----*/\n"
+  "  /*----Procedures section----*/\n"
   "int main(int argc, char** argv){\n"
   "  if (argc == 2){\n"
   "    yyin = fopen(argv[1], \"rt\");\n"
   "    if(yyin == NULL){\n"
-  "      printf(\"El fichero %s no se puede abrir\\n\", argv[1]);\n"
+  "      printf(\"The file %s can't be opened\\n\", argv[1]);\n"
   "      exit(-1);\n"
   "    }\n"
   "  }\n"
@@ -192,7 +229,7 @@ public:
   "      reliability += formats_regex[i][j].goodness * formats_regex[i][j].matches;\n"
   "    }\n"
   "    reliability = reliability / (reliability+100);\n"
-  "    printf(\"El archivo es %s con una fiabilidad de %lf\\n\", format_names[i], reliability);\n"
+  "    printf(\"The file is %s whith a reliability of %lf\\n\", format_names[i], reliability);\n"
   "  }\n"
 
   "  for (int i=0; i < formats_num; i++)\n"
